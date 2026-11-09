@@ -1,5 +1,5 @@
 :root {
-  /* Tropical cutesy palette */
+  /* Tropical palette */
   --pink: #ff7eb6;
   --coral: #ff9f7a;
   --mango: #ffc15e;
@@ -8,9 +8,12 @@
   --deep-teal: #0b4f4a;
   --white: #fff;
 
-  --heading: 'Fredoka', 'Nunito', system-ui, 'Segoe UI', Roboto, sans-serif;
+  /* Typography: thin, modern, editorial. Inter loads weights 200 / 300 / 400. */
+  --sans: 'Inter', 'Helvetica Neue', Helvetica, Arial, system-ui, sans-serif;
+  --heading: var(--sans);
 
-  font: 18px/1.4 var(--heading);
+  font: 300 18px/1.5 var(--sans);
+  letter-spacing: 0.01em;
   color: var(--white);
   background: var(--lagoon);
   text-rendering: optimizeLegibility;
@@ -30,14 +33,23 @@ body {
   margin: 0;
 }
 
+/* form controls don't inherit the page font by default */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
 #root {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
 }
 
-h1 {
+h1,
+h2 {
   margin: 0;
   font-family: var(--heading);
-  font-weight: 700;
+  font-weight: 200;
 }

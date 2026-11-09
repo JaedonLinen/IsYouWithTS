@@ -60,45 +60,44 @@
 .hero h1 {
   max-width: 10ch;
   font-size: clamp(3.4rem, 17vw, 7rem);
-  line-height: 0.95;
-  letter-spacing: -0.02em;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
   text-align: left;
   text-wrap: balance;
   color: var(--white);
-  /* chunky sticker-style shadow */
-  text-shadow:
-    3px 3px 0 var(--deep-teal),
-    6px 6px 0 rgba(11, 79, 74, 0.25);
+  /* soft glow keeps the thin letters readable on the gradient */
+  text-shadow: 0 2px 28px rgba(11, 79, 74, 0.4);
 }
 
 .cta {
-  font-family: var(--heading);
-  font-size: 1.25rem;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-  color: var(--deep-teal);
-  background: var(--butter);
-  border: 3px solid var(--deep-teal);
+  min-height: 52px;
+  padding: 16px 34px;
+  border: 1px solid var(--deep-teal);
   border-radius: 999px;
-  padding: 14px 32px;
+  background: var(--butter);
+  color: var(--deep-teal);
+  font-family: var(--heading);
+  font-size: 0.85rem;
+  font-weight: 300;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
   cursor: pointer;
-  box-shadow: 4px 4px 0 var(--deep-teal);
   transition:
-    transform 0.15s ease,
-    box-shadow 0.15s ease,
-    background-color 0.15s ease;
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background-color 0.2s ease;
 
   &:hover {
     background: #fff;
-    transform: translate(-2px, -2px) rotate(-1.5deg);
-    box-shadow: 6px 6px 0 var(--deep-teal);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(11, 79, 74, 0.25);
   }
   &:active {
-    transform: translate(3px, 3px);
-    box-shadow: 1px 1px 0 var(--deep-teal);
+    transform: translateY(0);
+    box-shadow: none;
   }
   &:focus-visible {
-    outline: 3px solid var(--white);
+    outline: 1px solid var(--white);
     outline-offset: 4px;
   }
 }
@@ -127,7 +126,7 @@
 .float {
   position: absolute;
   font-size: 2.4rem;
-  filter: drop-shadow(2px 3px 0 rgba(11, 79, 74, 0.25));
+  filter: drop-shadow(0 4px 8px rgba(11, 79, 74, 0.2));
   animation: bob 4s ease-in-out infinite;
 }
 
