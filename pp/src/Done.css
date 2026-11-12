@@ -1,0 +1,12 @@
+/* Thank-you screen: reuses the home .hero look from App.css */
+.done h1 {
+  max-width: 12ch;
+}
+
+.done-copy {
+  max-width: 34ch;
+  margin: -8px 0 0;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  text-shadow: 0 1px 14px rgba(11, 79, 74, 0.45);
+}

@@ -1,0 +1,231 @@
+/**
+ * API for "pp spreadsheet"  -  paste this whole file into Code.gs
+ *
+ *   GET  <web app url>            ->  every row of the "Airbnb Opts" tab, as JSON
+ *   POST <web app url> + JSON     ->  adds a row to the "Form" tab
+ *
+ * "Form" tab columns right now: Name, M, MBNB, OT, OTBNB, DT
+ * Send keys that match those header names (upper/lower case doesn't matter).
+ * Add or rename columns in the sheet and the API follows - nothing to change here.
+ *
+ * Example POST body:  {"Name": "Alex", "M": "...", "MBNB": "...", "OT": "...", "OTBNB": "...", "DT": "..."}
+ * Several at once:    {"rows": [ {...}, {...} ]}
+ */
+ 
+// ====================== SETTINGS ======================
+const SPREADSHEET_ID = '1DYJm4KBsnsncuFey1Vo4fpFLmrXb7eLPuaiZB3TPtCo'; // '' = use the sheet this script is attached to
+const READ_SHEET = 'Airbnb Opts';   // GET returns every row of this tab
+const WRITE_SHEET = 'Form';         // POST adds rows to this tab
+const REQUIRED_FIELDS = ['Name'];   // POST is rejected if any of these are blank
+const MAX_ROWS_PER_REQUEST = 50;
+const MAX_CELL_LENGTH = 500;        // characters per cell
+const CACHE_SECONDS = 30;           // GET answers are reused this long (faster page loads). 0 = off. Add ?fresh=1 to skip.
+// =======================================================
+ 
+/** READ: returns all rows from the Airbnb Opts tab. */
+function doGet(e) {
+  try {
+    const skipCache = !!(e && e.parameter && e.parameter.fresh);
+    const cache = CacheService.getScriptCache();
+    const cacheKey = 'airbnb-opts-v1';
+ 
+    if (CACHE_SECONDS > 0 && !skipCache) {
+      const hit = cache.get(cacheKey);
+      if (hit) return out_(hit);
+    }
+ 
+    const data = readAll_();
+    const text = JSON.stringify({
+      ok: true,
+      sheet: READ_SHEET,
+      count: data.rows.length,
+      headers: data.headers,
+      rows: data.rows,
+      fetchedAt: new Date().toISOString()
+    });
+ 
+    if (CACHE_SECONDS > 0) {
+      try { cache.put(cacheKey, text, CACHE_SECONDS); } catch (_) { /* too big to cache - fine */ }
+    }
+    return out_(text);
+  } catch (err) {
+    return json_({ ok: false, error: messageOf_(err) });
+  }
+}
+ 
+/** WRITE: adds one or more rows to the Form tab. */
+function doPost(e) {
+  const lock = LockService.getScriptLock();
+  try {
+    const items = parseBody_(e);
+    if (items.length === 0) throw new Error('Nothing to save.');
+    if (items.length > MAX_ROWS_PER_REQUEST) {
+      throw new Error('Too many rows in one request (max ' + MAX_ROWS_PER_REQUEST + ').');
+    }
+ 
+    lock.waitLock(15000); // so two people submitting at once don't land on the same row
+    const result = writeRows_(items);
+    return json_({ ok: true, added: result.added, row: result.row, ignored: result.ignored });
+  } catch (err) {
+    return json_({ ok: false, error: messageOf_(err) });
+  } finally {
+    try { lock.releaseLock(); } catch (_) { /* wasn't held */ }
+  }
+}
+ 
+// ---------------------- reading ----------------------
+ 
+function readAll_() {
+  const sheet = getSheet_(READ_SHEET);
+  const lastRow = sheet.getLastRow();
+  const lastCol = sheet.getLastColumn();
+  if (lastRow < 1 || lastCol < 1) return { headers: [], rows: [] };
+ 
+  const range = sheet.getRange(1, 1, lastRow, lastCol);
+  const values = range.getValues();
+  const shown = range.getDisplayValues();
+  const headers = values[0].map(function (h) { return String(h).trim(); });
+ 
+  const rows = [];
+  for (let r = 1; r < values.length; r++) {
+    const obj = {};
+    let hasData = false;
+    for (let c = 0; c < headers.length; c++) {
+      if (!headers[c]) continue; // skip columns with no header
+      const v = cellValue_(values[r][c], shown[r][c]);
+      if (v !== '') hasData = true;
+      obj[headers[c]] = v;
+    }
+    if (hasData) rows.push(obj); // skip fully blank rows
+  }
+  return { headers: headers.filter(Boolean), rows: rows };
+}
+ 
+function cellValue_(value, shown) {
+  if (value instanceof Date) return value.toISOString();
+  // very long whole numbers (like listing IDs) lose digits once they become JS numbers, so send them as text
+  if (typeof value === 'number' && Number.isInteger(value) && !Number.isSafeInteger(value)) return shown;
+  return value;
+}
+ 
+// ---------------------- writing ----------------------
+ 
+function parseBody_(e) {
+  let data = null;
+  const raw = e && e.postData && e.postData.contents;
+  if (raw) {
+    try { data = JSON.parse(raw); } catch (_) { data = null; }
+  }
+  if (data === null) {
+    // not JSON - accept normal form fields instead (a plain HTML <form>, or URLSearchParams)
+    data = Object.assign({}, (e && e.parameter) || {});
+    if (Object.keys(data).length === 0) {
+      throw new Error('Send a JSON object, for example {"Name":"Alex"}.');
+    }
+  }
+  if (data && Array.isArray(data.rows)) data = data.rows;
+  const list = Array.isArray(data) ? data : [data];
+  list.forEach(function (item) {
+    if (item === null || typeof item !== 'object' || Array.isArray(item)) {
+      throw new Error('Each submission must be an object of {column: value}.');
+    }
+  });
+  return list;
+}
+ 
+function writeRows_(items) {
+  const sheet = getSheet_(WRITE_SHEET);
+  const lastCol = Math.max(sheet.getLastColumn(), 1);
+  const headers = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+  const columnOf = {};
+  headers.forEach(function (h, i) {
+    if (h && !(h.toLowerCase() in columnOf)) columnOf[h.toLowerCase()] = i;
+  });
+  if (Object.keys(columnOf).length === 0) {
+    throw new Error('The "' + WRITE_SHEET + '" tab needs a header row in row 1.');
+  }
+ 
+  // build and check every row first, so a bad row means nothing gets written
+  const ignored = {};
+  const rows = items.map(function (item) {
+    const row = new Array(headers.length).fill('');
+    let used = 0;
+    Object.keys(item).forEach(function (key) {
+      const col = columnOf[String(key).trim().toLowerCase()];
+      if (col === undefined) { ignored[key] = true; return; }
+      row[col] = clean_(item[key], key);
+      used++;
+    });
+    if (used === 0) {
+      throw new Error('None of the fields match the "' + WRITE_SHEET + '" columns (' +
+        headers.filter(Boolean).join(', ') + ').');
+    }
+    REQUIRED_FIELDS.forEach(function (name) {
+      const col = columnOf[name.toLowerCase()];
+      if (col !== undefined && row[col] === '') throw new Error('"' + name + '" is required.');
+    });
+    return row;
+  });
+ 
+  const firstRow = Math.max(sheet.getLastRow(), 1) + 1;
+  const lastNeeded = firstRow + rows.length - 1;
+  if (lastNeeded > sheet.getMaxRows()) {
+    sheet.insertRowsAfter(sheet.getMaxRows(), lastNeeded - sheet.getMaxRows());
+  }
+  sheet.getRange(firstRow, 1, rows.length, headers.length).setValues(rows);
+  return { added: rows.length, row: firstRow, ignored: Object.keys(ignored) };
+}
+ 
+function clean_(value, key) {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) {
+    if (value.some(function (v) { return v !== null && typeof v === 'object'; })) {
+      throw new Error('"' + key + '" can only be a list of plain values.');
+    }
+    value = value.join(', ');
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (typeof value === 'object') {
+    throw new Error('"' + key + '" must be text, a number, true/false, or a list.');
+  }
+  let s = String(value).trim();
+  if (s.length > MAX_CELL_LENGTH) {
+    throw new Error('"' + key + '" is too long (max ' + MAX_CELL_LENGTH + ' characters).');
+  }
+  // stop typed-in text like =IMPORTXML(...) from running as a formula in your sheet
+  if (/^[=@]/.test(s) || (/^[+\-]/.test(s) && isNaN(Number(s)))) s = "'" + s;
+  return s;
+}
+ 
+// ---------------------- helpers ----------------------
+ 
+function getSheet_(name) {
+  const ss = SPREADSHEET_ID ? SpreadsheetApp.openById(SPREADSHEET_ID) : SpreadsheetApp.getActiveSpreadsheet();
+  const sheets = ss.getSheets();
+  const want = name.trim().toLowerCase();
+  for (let i = 0; i < sheets.length; i++) {
+    if (sheets[i].getName().trim().toLowerCase() === want) return sheets[i];
+  }
+  throw new Error('Tab "' + name + '" not found. Tabs in this file: ' +
+    sheets.map(function (s) { return s.getName(); }).join(', '));
+}
+ 
+function out_(text) {
+  return ContentService.createTextOutput(text).setMimeType(ContentService.MimeType.JSON);
+}
+ 
+function json_(obj) {
+  return out_(JSON.stringify(obj));
+}
+ 
+function messageOf_(err) {
+  return String((err && err.message) || err);
+}
+ 
+/** Run this once from the editor (Run button) to approve permissions and check the read side works. */
+function testRead() {
+  const data = readAll_();
+  Logger.log(data.rows.length + ' rows. Columns: ' + data.headers.join(', '));
+  Logger.log(JSON.stringify(data.rows[0]));
+}
+ 

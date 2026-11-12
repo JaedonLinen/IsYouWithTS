@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { DESTINATIONS } from './destinations.js'
 import './Destination.css'
 
 const NAMES = [
@@ -12,16 +13,6 @@ const NAMES = [
   'Other',
 ]
 
-const DESTINATIONS = [
-  { id: 'miami', word: 'MIAMI', label: 'Miami', short: 'Miami' },
-  {
-    id: 'orlando-tampa',
-    word: 'ORLANDO/TAMPA',
-    label: 'Orlando or Tampa',
-    short: 'Orlando/Tampa',
-  },
-]
-
 // Both words are sized from the longest one, so the lettering matches
 // across the two panels and always fits the screen height.
 const ROWS = Math.max(...DESTINATIONS.map((d) => d.word.length))
@@ -29,10 +20,9 @@ const ROWS = Math.max(...DESTINATIONS.map((d) => d.word.length))
 // Keep in sync with the .overlay opacity transition in Destination.css
 const FADE_MS = 600
 
-export default function Destination() {
-  const [name, setName] = useState('')
-  const [overlay, setOverlay] = useState('open') // 'open' | 'closing' | 'gone'
-  const [choice, setChoice] = useState(null)
+export default function Destination({ name, choice, onName, onChoice, onContinue }) {
+  // Coming back from the Airbnb screens, the name is already known
+  const [overlay, setOverlay] = useState(name ? 'gone' : 'open') // 'open' | 'closing' | 'gone'
   const selectRef = useRef(null)
 
   useEffect(() => {
@@ -49,7 +39,7 @@ export default function Destination() {
   const picked = DESTINATIONS.find((d) => d.id === choice)
 
   function handleName(event) {
-    setName(event.target.value)
+    onName(event.target.value)
     setOverlay('closing')
   }
 
@@ -78,7 +68,7 @@ export default function Destination() {
               className={classes}
               aria-pressed={selected}
               aria-label={d.label}
-              onClick={() => setChoice(selected ? null : d.id)}
+              onClick={() => onChoice(selected ? null : d.id)}
             >
               <span className="word" aria-hidden="true">
                 {[...d.word].map((char, i) => (
@@ -95,16 +85,18 @@ export default function Destination() {
           )
         })}
 
-        <p className="status" aria-live="polite">
-          {picked ? (
-            <>
-              <span className="status-name">{name}</span>
-              <span>{picked.short}</span>
-            </>
-          ) : (
+        {picked ? (
+          <button type="button" className="status is-continue" onClick={onContinue}>
+            <span className="status-name">
+              {name} · {picked.short}
+            </span>
+            <span>Continue</span>
+          </button>
+        ) : (
+          <p className="status" aria-live="polite">
             <span>Choose a side</span>
-          )}
-        </p>
+          </p>
+        )}
       </main>
 
       {overlay !== 'gone' && (
@@ -116,7 +108,7 @@ export default function Destination() {
           aria-hidden={overlay === 'closing' ? 'true' : undefined}
         >
           <div className="overlay-content">
-            <h2 id="who-title">Who&apos;s Making This Decision?</h2>
+            <h2 id="who-title">Which scuba are you?</h2>
             <label className="sr-only" htmlFor="who">
               Your name
             </label>

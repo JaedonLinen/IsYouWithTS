@@ -256,6 +256,42 @@
   pointer-events: none;
 }
 
+.status.is-continue {
+  border: 0;
+  background: #1fbf75;
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  padding: 11px 30px;
+  box-shadow: 0 10px 30px rgba(31, 191, 117, 0.4);
+  cursor: pointer;
+  pointer-events: auto;
+  animation: pop-in 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    background: #27d184;
+  }
+  &:focus-visible {
+    outline: 1px solid #fff;
+    outline-offset: 3px;
+  }
+  & .status-name {
+    opacity: 0.85;
+  }
+}
+
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.9);
+  }
+}
+
 .status-name {
   opacity: 0.65;
   font-size: 10px;
@@ -355,7 +391,8 @@
   .letter,
   .panel,
   .overlay,
-  .name-select {
+  .name-select,
+  .status {
     animation: none;
     transition: none;
   }
