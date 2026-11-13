@@ -1,6 +1,6 @@
 // Google Apps Script web app for the "pp spreadsheet" (source: sheetapi.txt).
 //   GET  -> every row of the "Airbnb Opts" tab
-//   POST -> adds a row to the "Form" tab (Name, M, MBNB, OT, OTBNB, DT)
+//   POST -> adds a row to the "Form" tab (Name, M, OT, MBNB1, MBNB2, OTBNB1, OTBNB2, DT)
 export const SHEET_API_URL =
   'https://script.google.com/macros/s/AKfycbwMMfpz74CY2YDCnMozufS6XIlVb0LXgM2z-4GJLdHXqJEqTr_A2Cb0NuHr4KwtjGT_/exec'
 
@@ -95,6 +95,10 @@ function today() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 }
 
+// Listing IDs are 19 digits; as plain numbers Sheets would round them
+// (1.46102E+18). The leading apostrophe makes Sheets keep them as text.
+const asText = (id) => (id ? `'${id}` : '')
+
 // selections: { miami?: [id, id], 'orlando-tampa'?: [id, id] }
 export function buildSubmission(name, selections) {
   const miami = selections.miami ?? []
@@ -102,9 +106,11 @@ export function buildSubmission(name, selections) {
   return {
     Name: name,
     M: miami.length ? 'Y' : 'N',
-    MBNB: miami.join(', '),
     OT: ot.length ? 'Y' : 'N',
-    OTBNB: ot.join(', '),
+    MBNB1: asText(miami[0]),
+    MBNB2: asText(miami[1]),
+    OTBNB1: asText(ot[0]),
+    OTBNB2: asText(ot[1]),
     DT: today(),
   }
 }
@@ -120,5 +126,10 @@ export async function submitSelections(row) {
   if (!res.ok) throw new Error(`The sheet answered with ${res.status}.`)
   const data = await res.json()
   if (!data.ok) throw new Error(data.error || 'The sheet did not save the row.')
+  // The row is saved by now, so don't fail (a retry would duplicate it), but
+  // make a renamed column easy to spot: the script drops keys it can't match.
+  if (data.ignored?.length) {
+    console.error(`Form tab has no column for: ${data.ignored.join(', ')}`)
+  }
   return data
 }
