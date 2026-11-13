@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import CostEstimate from './CostEstimate.jsx'
 import { DESTINATIONS } from './destinations.js'
 import './Destination.css'
 
@@ -84,6 +85,10 @@ export default function Destination({ name, choice, onName, onChoice, onContinue
             </button>
           )
         })}
+
+        {picked && (
+          <CostEstimate key={picked.id} destination={picked} className="destination-estimate" />
+        )}
 
         {picked ? (
           <button type="button" className="status is-continue" onClick={onContinue}>

@@ -297,6 +297,25 @@
   font-size: 10px;
 }
 
+/* ---------- trip estimate (shown once a side is picked) ---------- */
+.destination-estimate {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--pad-bottom) + 74px);
+  z-index: 3;
+  /* sits between the two columns of lettering */
+  width: min(270px, calc(100% - 2 * (var(--pad-left) + var(--cell) * 0.85)));
+  transform: translateX(-50%);
+  animation: estimate-in 0.4s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes estimate-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 12px);
+  }
+}
+
 /* ---------- name overlay ---------- */
 .overlay {
   position: fixed;
@@ -392,7 +411,8 @@
   .panel,
   .overlay,
   .name-select,
-  .status {
+  .status,
+  .destination-estimate {
     animation: none;
     transition: none;
   }

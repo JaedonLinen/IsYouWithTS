@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { imagesFor } from './bnbImages.js'
-import { DESTINATIONS } from './destinations.js'
+import CostEstimate from './CostEstimate.jsx'
+import { DESTINATIONS, estimateTotal } from './destinations.js'
 import { fetchListings } from './sheetApi.js'
 import './Airbnbs.css'
 
@@ -508,9 +509,14 @@ export default function Airbnbs({
 
             {submit.status === 'idle' && (
               <>
+                <CostEstimate destination={destination} />
                 <h2 id="bnb-dialog-title">
                   Would you like to choose two Airbnbs from the other city as well?
                 </h2>
+                <p className="dialog-note">
+                  {otherCity.short} is about ${estimateTotal(otherCity).toLocaleString('en-US')} per
+                  person.
+                </p>
                 <div className="dialog-actions">
                   <button
                     type="button"
